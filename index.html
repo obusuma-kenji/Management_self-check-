@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>『会社の磨き屋』セルフ診断ツール</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony -->
+    <!-- Application Structure Plan: The SPA is designed as a 4-step guided journey that mirrors the narrative arc of the source novel, "The Company Polisher." This task-oriented wizard structure is ideal for the target user—a busy SME owner with no long-term vision—as it gently guides them from personal reflection to a concrete action plan. Step 1 starts with personal fulfillment, Step 2 connects it to a short-term business goal, Step 3 is a self-assessment of the company's "polish," and Step 4 provides a personalized, actionable "First Polishing Plan." This transforms the passive story into an active, decision-support experience. -->
+    <!-- Visualization & Content Choices: 1. Polishing Assessment -> Goal: Compare strengths/weaknesses -> Viz: Radar Chart -> Interaction: Dynamically updates based on user's checklist selections -> Justification: Provides an immediate, holistic view of the company's health across the four key "polishing" areas, just as the consultant's tool did in the story. Library: Chart.js. 2. Action Plan -> Goal: Provide a concrete starting point -> Presentation: Dynamically generated list of recommendations -> Interaction: Content is prioritized based on the user's weakest area -> Justification: Delivers a tangible, low-barrier first step, which is crucial for a leader who feels stuck, mirroring the novel's core message of starting small. Method: JS DOM manipulation. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .step-container {
+            display: none;
+            animation: fadeIn 0.6s ease-in-out;
+        }
+        .step-container.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .progress-bar-fill {
+            transition: width 0.5s ease-in-out;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        .idea-card {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .idea-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+        }
+        .idea-card.selected {
+            border-color: #2563eb;
+            background-color: #eff6ff;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+    <div class="container mx-auto p-4 sm:p-8 max-w-4xl">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">『会社の磨き屋』セルフ診断ツール</h1>
+            <p class="mt-3 text-gray-600 max-w-2xl mx-auto">小説の主人公のように、会社の「本質的な輝き」を見つけ、未来への第一歩を踏み出しましょう。</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-10">
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 rounded-full h-3 mb-8">
+                <div id="progressBar" class="bg-blue-600 h-3 rounded-full progress-bar-fill" style="width: 25%"></div>
+            </div>
+
+            <!-- Step 1: Personal Vision -->
+            <div id="step1" class="step-container active">
+                <h2 class="text-2xl font-bold mb-2">第一章：未来を描けない男</h2>
+                <p class="mb-6 text-gray-600">まず、会社のことは少し忘れてみませんか？社長ご自身の「理想」について教えてください。</p>
+                <div class="space-y-6">
+                    <div>
+                        <label for="personal_q1" class="block text-sm font-medium text-gray-700">もし、時間とお金に一切の制約がなかったら、どんな「夢の休暇」を過ごしたいですか？</p>
+                        <textarea id="personal_q1" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="例：北海道で、一週間フライフィッシングをしてみたい"></textarea>
+                    </div>
+                    <div>
+                        <label for="personal_q2" class="block text-sm font-medium text-gray-700">あなたにとっての「完璧な一日」は、どのようなものですか？</p>
+                        <textarea id="personal_q2" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="例：妻の待つ自宅で、温かい夕食をとる"></textarea>
+                    </div>
+                </div>
+                <div class="text-right mt-8">
+                    <button onclick="nextStep(2)" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">次へ</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Bridge to Business -->
+            <div id="step2" class="step-container">
+                <h2 class="text-2xl font-bold mb-2">会社の未来と人生をつなげる</h2>
+                <p class="mb-6 text-gray-600">その「理想」を実現するために、あなたの会社は3年後、どのような状態になっている必要があるでしょうか？</p>
+                <div class="space-y-4">
+                    <div>
+                        <label for="goal_operations" class="block text-sm font-medium text-gray-700">事業・組織の目標</label>
+                        <input type="text" id="goal_operations" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="例：自分が1週間不在でも、会社が問題なく回る仕組みを作る">
+                    </div>
+                </div>
+                 <div class="flex justify-between mt-8">
+                    <button onclick="prevStep(1)" class="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition">戻る</button>
+                    <button onclick="nextStep(3)" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 3: Self-Diagnosis -->
+            <div id="step3" class="step-container">
+                <h2 class="text-2xl font-bold mb-2">第二章：最初のひと磨き</h2>
+                <p class="mb-6 text-gray-600">3年後の目標達成に向けて、会社の「磨きどころ」を探しましょう。現在、取り組んでいる項目をクリックしてください。</p>
+                <div id="assessment-container" class="space-y-8"></div>
+                <div class="flex justify-between mt-8">
+                    <button onclick="prevStep(2)" class="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition">戻る</button>
+                    <button onclick="generatePlan()" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">診断結果を見る</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Results -->
+            <div id="step4" class="step-container">
+                <h2 class="text-2xl font-bold mb-2">第三章：輝き始める現場</h2>
+                <p class="mb-6 text-gray-600">お疲れ様でした。これが貴社だけの『磨き上げプラン』です。ここから、未来への物語が始まります。</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-xl font-semibold text-center mb-4">現在の『磨き上げ』バランス</h3>
+                        <div class="chart-container">
+                            <canvas id="polishing-chart"></canvas>
+                        </div>
+                    </div>
+                    <div id="recommendations">
+                        <h3 class="text-xl font-semibold mb-4">最初のひと磨きプラン</h3>
+                        <div class="text-sm p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                            <p><strong>3年後の目標：</strong><span id="goalResult" class="font-bold"></span></p>
+                            <p class="mt-1">この目標を実現するため、まずは最も効果的な「最初のひと磨き」から始めましょう。</p>
+                        </div>
+                        <div id="action-plan" class="space-y-4"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-8">
+                    <button onclick="prevStep(3)" class="bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-300 transition">戻る</button>
+                    <button onclick="window.print()" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition">プランを印刷/PDF保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let polishingChart = null;
+        let selections = {};
+
+        const polishingData = {
+            'cat1': {
+                title: '健康と働きがい',
+                icon: '❤️',
+                ideas: [
+                    { id: 'c1i1', title: '食生活サポート', content: '設置型社食や弁当補助で健康を支える。' },
+                    { id: 'c1i2', title: '運動機会の創出', content: 'ジム会費補助や社内ヨガでリフレッシュ。' },
+                    { id: 'c1i3', title: 'メンタルヘルスケア', content: '外部相談窓口を設け、心の健康を守る。' }
+                ],
+                recommendation: {
+                    firstStep: "まず、従業員の皆さんの心身の健康から磨きましょう。**設置型の健康社食サービス**を試してみませんか？小説の田中製作所のように、職場の空気が変わるきっかけになります。"
+                }
+            },
+            'cat2': {
+                title: 'スキルとキャリア',
+                icon: '🎓',
+                ideas: [
+                    { id: 'c2i1', title: '資格取得・リスキリング支援', content: '資格や研修の費用を補助し、成長を応援。' },
+                    { id: 'c2i2', title: '1on1ミーティング', content: '上司と部下が定期的に対話し、信頼を築く。' },
+                    { id: 'c2i3', title: 'ナレッジ共有会', content: 'ベテランの技術を若手に伝える場を設ける。' }
+                ],
+                recommendation: {
+                    firstStep: "会社の未来を担う「人」を磨きましょう。小説の『鈴木塾』のように、**ベテラン社員が若手に技術を教える30分の勉強会**を週に一度開いてみませんか？"
+                }
+            },
+            'cat3': {
+                title: '組織風土と透明性',
+                icon: '🤝',
+                ideas: [
+                    { id: 'c3i1', title: 'エンゲージメントサーベイ', content: '匿名のアンケートで従業員の声を聴く。' },
+                    { id: 'c3i2', title: '柔軟な働き方の導入', content: 'リモートワークやフレックスで多様な人材に対応。' },
+                    { id: 'c3i3', title: 'シンプルな統合報告書', content: '数字以外の会社の価値（磨き上げの成果）を内外に示す。' }
+                ],
+                recommendation: {
+                    firstStep: "会社の「価値」を内外に示すことから磨きましょう。この1年の取り組みを**A4一枚の『シンプルな統合報告書』**にまとめてみませんか？従業員の自信と、外部からの信頼に繋がります。"
+                }
+            }
+        };
+
+        function initAssessment() {
+            const container = document.getElementById('assessment-container');
+            container.innerHTML = '';
+            Object.keys(polishingData).forEach(catId => {
+                const category = polishingData[catId];
+                selections[catId] = new Set();
+
+                let categoryHtml = `
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3">${category.icon} ${category.title}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                `;
+                category.ideas.forEach(idea => {
+                    categoryHtml += `
+                        <div id="${idea.id}" class="idea-card bg-white p-4 rounded-lg border-2 border-gray-200 text-center" onclick="toggleSelection('${idea.id}', '${catId}')">
+                            <h4 class="font-bold text-gray-800">${idea.title}</h4>
+                            <p class="mt-1 text-xs text-gray-500">${idea.content}</p>
+                        </div>
+                    `;
+                });
+                categoryHtml += `</div></div>`;
+                container.innerHTML += categoryHtml;
+            });
+        }
+
+        function toggleSelection(ideaId, catId) {
+            const card = document.getElementById(ideaId);
+            card.classList.toggle('selected');
+            if (selections[catId].has(ideaId)) {
+                selections[catId].delete(ideaId);
+            } else {
+                selections[catId].add(ideaId);
+            }
+        }
+
+        function updateProgressBar() {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${(currentStep / 4) * 100}%`;
+        }
+
+        function nextStep(step) {
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+            currentStep = step;
+            document.getElementById(`step${currentStep}`).classList.add('active');
+            updateProgressBar();
+        }
+
+        function prevStep(step) {
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+            currentStep = step;
+            document.getElementById(`step${currentStep}`).classList.add('active');
+            updateProgressBar();
+        }
+        
+        function generatePlan() {
+            nextStep(4);
+            updateChart();
+            updateActionPlan();
+            document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('polishing-chart').getContext('2d');
+            const labels = Object.values(polishingData).map(cat => cat.title);
+            const data = Object.keys(polishingData).map(catId => {
+                const totalIdeas = polishingData[catId].ideas.length;
+                const selectedIdeas = selections[catId].size;
+                return totalIdeas > 0 ? (selectedIdeas / totalIdeas) * 100 : 0;
+            });
+
+            if (polishingChart) {
+                polishingChart.destroy();
+            }
+
+            polishingChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '磨き上げ度 (%)',
+                        data: data,
+                        fill: true,
+                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                        borderColor: 'rgb(37, 99, 235)',
+                        pointBackgroundColor: 'rgb(37, 99, 235)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(37, 99, 235)'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { display: true },
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            pointLabels: { font: { size: 14 } },
+                            ticks: { backdropColor: 'rgba(255, 255, 255, 0.75)', stepSize: 25 }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateActionPlan() {
+            const goal = document.getElementById('goal_operations').value || "（未入力）";
+            document.getElementById('goalResult').textContent = goal;
+
+            const actionContainer = document.getElementById('action-plan');
+            actionContainer.innerHTML = '';
+
+            let scores = {};
+            Object.keys(polishingData).forEach(catId => {
+                scores[catId] = selections[catId].size;
+            });
+            
+            let sortedCategories = Object.keys(scores).sort((a, b) => scores[a] - scores[b]);
+            const weakestCategoryKey = sortedCategories[0];
+            const recommendation = polishingData[weakestCategoryKey].recommendation;
+
+            const actionItem = document.createElement('div');
+            actionItem.className = 'p-4 border-l-4 border-blue-600 bg-gray-50 rounded-r-lg';
+            actionItem.innerHTML = `<p class="text-gray-700">${recommendation.firstStep.replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700">$1</strong>')}</p>`;
+            actionContainer.appendChild(actionItem);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAssessment();
+        });
+    </script>
+</body>
+</html>
